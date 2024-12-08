@@ -3,6 +3,8 @@ import librosa
 import numpy as np
 import pickle
 import os
+import sounddevice as sd
+from scipy.io.wavfile import write
 from sklearn.svm import SVC
 from sklearn.preprocessing import LabelEncoder
 
@@ -19,11 +21,22 @@ def extract_features(file_path):
     try:
         y, sr = librosa.load(file_path, duration=2.5, offset=0.5)
         mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-        mfcc_scaled = np.mean(mfcc.T, axis=0)
-        return mfcc_scaled
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+        spectral_contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
+        zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y=y))
+
+        # Combine features
+        features = np.hstack([
+            np.mean(mfcc.T, axis=0),
+            np.mean(chroma.T, axis=0),
+            np.mean(spectral_contrast.T, axis=0),
+            zero_crossing_rate
+        ])
+        return features
     except Exception as e:
         st.error(f"Error processing audio: {e}")
         return None
+
 
 # Function to authenticate user via voice
 def authenticate_user(audio_file, allowed_users):
@@ -31,10 +44,14 @@ def authenticate_user(audio_file, allowed_users):
     features = extract_features(audio_file)
     if features is not None:
         try:
-            prediction = model.predict([features])
-            predicted_label = label_encoder.inverse_transform(prediction)
-            if predicted_label[0] in allowed_users:
-                return predicted_label[0]
+            # Get probabilities for each class
+            probabilities = model.predict_proba([features])
+            max_prob = max(probabilities[0])
+            predicted_label = label_encoder.inverse_transform([np.argmax(probabilities[0])])[0]
+
+            # Only authenticate if the maximum probability exceeds a threshold
+            if max_prob > 0.8 and predicted_label in allowed_users:
+                return predicted_label
             else:
                 return None
         except Exception as e:
@@ -42,9 +59,22 @@ def authenticate_user(audio_file, allowed_users):
             return None
     return None
 
+
+# Record audio from user
+def record_audio(filename, duration=5, fs=44100):
+    st.info(f"Recording for {duration} seconds...")
+    try:
+        recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
+        sd.wait()  # Wait for the recording to finish
+        write(filename, fs, recording)  # Save as WAV file
+        st.success("Recording completed.")
+    except Exception as e:
+        st.error(f"Error during recording: {e}")
+
 # Streamlit app
 def main():
-    st.title("Voice Authentication App")
+    st.title("Voice Authentication App 🎙️")
+    st.subheader("Your voice is your key to access 🔐")
 
     # List of allowed users
     allowed_users = ["rahul", "margaret", "jens"]
@@ -53,25 +83,37 @@ def main():
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
-        st.header("Voice Authentication Required")
-        uploaded_file = st.file_uploader("Upload your voice (.wav file)", type=["wav"])
+        st.markdown("### Provide your voice for authentication:")
+        option = st.radio("Choose an option:", ["🎤 Record Voice", "📁 Upload Voice File"])
+
+        if option == "🎤 Record Voice":
+            if st.button("Start Recording"):
+                record_audio("temp.wav", duration=5)
+                st.success("Recording complete. Authenticating...")
+                user = authenticate_user("temp.wav", allowed_users)
+                if user:
+                    st.success(f"Welcome, {user.capitalize()}! Access granted.")
+                    st.session_state.authenticated = True
+                else:
+                    st.error("Authentication failed. Voice not recognized.")
         
-        if uploaded_file is not None:
-            with open("temp.wav", "wb") as temp_file:
-                temp_file.write(uploaded_file.getbuffer())
-
-            # Authenticate the user
-            user = authenticate_user("temp.wav", allowed_users)
-            if user:
-                st.success(f"Welcome {user.capitalize()}! You are authenticated.")
-                st.session_state.authenticated = True
-            else:
-                st.error("Voice not recognized. You are not authenticated.")
-
+        elif option == "📁 Upload Voice File":
+            uploaded_file = st.file_uploader("Upload a .wav file:", type=["wav"])
+            if uploaded_file:
+                with open("temp.wav", "wb") as temp_file:
+                    temp_file.write(uploaded_file.getbuffer())
+                st.success("File uploaded. Authenticating...")
+                user = authenticate_user("temp.wav", allowed_users)
+                if user:
+                    st.success(f"Welcome, {user.capitalize()}! Access granted.")
+                    st.session_state.authenticated = True
+                else:
+                    st.error("Authentication failed. Voice not recognized.")
+    
     if st.session_state.authenticated:
-        st.header("Main Application")
-        st.write("This is the main interface of the application.")
-        # Add more features here later
+        st.header("Welcome to the App 🎉")
+        st.write("You now have access to all the features.")
+
 
 if __name__ == "__main__":
     main()
