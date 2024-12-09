@@ -7,6 +7,7 @@ import sounddevice as sd
 from scipy.io.wavfile import write
 from sklearn.svm import SVC
 from sklearn.preprocessing import LabelEncoder
+from voice_translation_app import main as run_translation_app  # Import the translation app
 
 # Load the trained model and label encoder
 def load_model():
@@ -26,17 +27,11 @@ def extract_features(file_path):
         zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y=y))
 
         # Combine features
-        features = np.hstack([
-            np.mean(mfcc.T, axis=0),
-            np.mean(chroma.T, axis=0),
-            np.mean(spectral_contrast.T, axis=0),
-            zero_crossing_rate
-        ])
+        features = np.hstack([np.mean(mfcc.T, axis=0), np.mean(chroma.T, axis=0), np.mean(spectral_contrast.T, axis=0), zero_crossing_rate])
         return features
     except Exception as e:
         st.error(f"Error processing audio: {e}")
         return None
-
 
 # Function to authenticate user via voice
 def authenticate_user(audio_file, allowed_users):
@@ -44,12 +39,10 @@ def authenticate_user(audio_file, allowed_users):
     features = extract_features(audio_file)
     if features is not None:
         try:
-            # Get probabilities for each class
             probabilities = model.predict_proba([features])
             max_prob = max(probabilities[0])
             predicted_label = label_encoder.inverse_transform([np.argmax(probabilities[0])])[0]
 
-            # Only authenticate if the maximum probability exceeds a threshold
             if max_prob > 0.8 and predicted_label in allowed_users:
                 return predicted_label
             else:
@@ -58,7 +51,6 @@ def authenticate_user(audio_file, allowed_users):
             st.error(f"Error during prediction: {e}")
             return None
     return None
-
 
 # Record audio from user
 def record_audio(filename, duration=5, fs=44100):
@@ -76,11 +68,11 @@ def main():
     st.title("Voice Authentication App 🎙️")
     st.subheader("Your voice is your key to access 🔐")
 
-    # List of allowed users
     allowed_users = ["rahul", "margaret", "jens"]
 
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
+        st.session_state.user_name = ""
 
     if not st.session_state.authenticated:
         st.markdown("### Provide your voice for authentication:")
@@ -94,6 +86,10 @@ def main():
                 if user:
                     st.success(f"Welcome, {user.capitalize()}! Access granted.")
                     st.session_state.authenticated = True
+                    st.session_state.user_name = user
+                    # Redirect to the translation app
+                    st.session_state.page = "translation"  # Set page to translation
+                    st.rerun()  # Trigger rerun to go to translation page
                 else:
                     st.error("Authentication failed. Voice not recognized.")
         
@@ -107,13 +103,22 @@ def main():
                 if user:
                     st.success(f"Welcome, {user.capitalize()}! Access granted.")
                     st.session_state.authenticated = True
+                    st.session_state.user_name = user
+                    # Redirect to the translation app
+                    st.session_state.page = "translation"  # Set page to translation
+                    st.rerun()  # Trigger rerun to go to translation page
                 else:
                     st.error("Authentication failed. Voice not recognized.")
     
     if st.session_state.authenticated:
-        st.header("Welcome to the App 🎉")
-        st.write("You now have access to all the features.")
+        # Display the authenticated user name
+        st.write(f"Authenticated user: {st.session_state.user_name.capitalize()}")
 
+        # Display the translation app if authenticated
+        if st.session_state.page == "translation":
+            run_translation_app()  # Run the translation app
+    else:
+        st.info("Please authenticate to access the translation app.")
 
 if __name__ == "__main__":
     main()
