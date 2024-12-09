@@ -65,8 +65,8 @@ def record_audio(filename, duration=5, fs=44100):
 
 # Streamlit app
 def main():
-    st.title("Voice Authentication App 🎙️")
-    st.subheader("Your voice is your key to access 🔐")
+    st.title("Voice Authentication System 🎙️")
+    st.subheader("Secure Voice Login 🔐")
 
     allowed_users = ["rahul", "margaret", "jens"]
 

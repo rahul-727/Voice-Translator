@@ -3,7 +3,8 @@ import torch
 from transformers import pipeline
 import pyttsx3
 import speech_recognition as sr
-import streamlit as st  # Make sure Streamlit is imported
+import streamlit as st  # Ensure Streamlit is imported
+from streamlit.components.v1 import html
 
 # Setting up logging for better visibility of the process
 logging.basicConfig(level=logging.INFO)
@@ -52,21 +53,59 @@ def text_to_speech_with_pyttsx3(text):
         logger.error(f"An error occurred during text-to-speech conversion: {e}")
 
 def main():
-    st.title("Voice Translation App 🎙️")
-    st.subheader("Speak to translate your words 🌍")
+    st.title("🎤 **Voice Translator** 🌍")
+    st.subheader("Speak to translate your words across languages")
 
-    if st.button("Start Speaking"):
+    st.markdown("""
+    Welcome to the **Voice Translator** app! Simply press the button below, speak your words, 
+    and watch as they are automatically translated into a different language. You will also hear 
+    the translation through voice feedback.
+    """)
+    
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # Styling the button and adding a background color for emphasis
+    button_style = """
+    <style>
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        font-size: 20px;
+        font-weight: bold;
+        border-radius: 12px;
+        width: 200px;
+        height: 60px;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    </style>
+    """
+    st.markdown(button_style, unsafe_allow_html=True)
+
+    # Button for starting speech input
+    if st.button("🎙️ Start Speaking"):
+        st.spinner("Listening... please speak clearly into your microphone.")
         source_language = "en-US"
         recognized_text = speech_to_text_from_mic(source_language)
         if recognized_text:
+            st.markdown(f"### 📜 **Recognized Text**: _{recognized_text}_")
             translated_text = translate_text(recognized_text)
             if translated_text:
-                st.success(f"Translated Text: {translated_text}")
+                st.markdown(f"### ✨ **Translated Text**: _{translated_text}_")
                 text_to_speech_with_pyttsx3(translated_text)
             else:
-                st.error("Translation failed.")
+                st.error("❌ Translation failed. Please try again.")
         else:
-            st.error("Speech recognition failed.")
+            st.error("❌ Speech recognition failed. Please try again.")
+
+    # Footer Information
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align: center; font-size: 14px; color: grey;">
+    Created with dedication by Noel, Sanin, and Rahul. Powered by Streamlit, HuggingFace, and Pyttsx3.
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
