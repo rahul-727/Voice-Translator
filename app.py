@@ -65,8 +65,12 @@ def record_audio(filename, duration=5, fs=44100):
 
 # Streamlit app
 def main():
-    st.title("Voice Authentication System 🎙️")
-    st.subheader("Secure Voice Login 🔐")
+    st.set_page_config(page_title="Voice Authentication System", page_icon="🎙️", layout="centered")
+    
+    # Main header
+    st.markdown("<h1 style='text-align: center; color: #4CAF50;'>Voice Authentication System 🎙️</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray;'>Secure your login with the power of your voice 🔐</p>", unsafe_allow_html=True)
+    st.divider()
 
     allowed_users = ["rahul", "margaret", "jens"]
 
@@ -75,50 +79,56 @@ def main():
         st.session_state.user_name = ""
 
     if not st.session_state.authenticated:
-        st.markdown("### Provide your voice for authentication:")
-        option = st.radio("Choose an option:", ["🎤 Record Voice", "📁 Upload Voice File"])
+        st.markdown("### Authenticate yourself:")
+        option = st.radio(
+            "How would you like to authenticate?",
+            ["🎤 Record Your Voice", "📁 Upload a Voice File"],
+            horizontal=True,
+        )
 
-        if option == "🎤 Record Voice":
-            if st.button("Start Recording"):
+        if option == "🎤 Record Your Voice":
+            st.markdown("Click below to record your voice.")
+            if st.button("Start Recording 🎙️", use_container_width=True):
                 record_audio("temp.wav", duration=5)
-                st.success("Recording complete. Authenticating...")
+                st.info("Processing authentication...")
                 user = authenticate_user("temp.wav", allowed_users)
                 if user:
-                    st.success(f"Welcome, {user.capitalize()}! Access granted.")
+                    st.success(f"🎉 Welcome, {user.capitalize()}! Access granted.")
                     st.session_state.authenticated = True
                     st.session_state.user_name = user
-                    # Redirect to the translation app
                     st.session_state.page = "translation"  # Set page to translation
                     st.rerun()  # Trigger rerun to go to translation page
                 else:
-                    st.error("Authentication failed. Voice not recognized.")
+                    st.error("❌ Authentication failed. Voice not recognized.")
         
-        elif option == "📁 Upload Voice File":
-            uploaded_file = st.file_uploader("Upload a .wav file:", type=["wav"])
+        elif option == "📁 Upload a Voice File":
+            st.markdown("Upload a `.wav` file for authentication.")
+            uploaded_file = st.file_uploader("", type=["wav"])
             if uploaded_file:
                 with open("temp.wav", "wb") as temp_file:
                     temp_file.write(uploaded_file.getbuffer())
-                st.success("File uploaded. Authenticating...")
+                st.info("Processing authentication...")
                 user = authenticate_user("temp.wav", allowed_users)
                 if user:
-                    st.success(f"Welcome, {user.capitalize()}! Access granted.")
+                    st.success(f"🎉 Welcome, {user.capitalize()}! Access granted.")
                     st.session_state.authenticated = True
                     st.session_state.user_name = user
-                    # Redirect to the translation app
                     st.session_state.page = "translation"  # Set page to translation
                     st.rerun()  # Trigger rerun to go to translation page
                 else:
-                    st.error("Authentication failed. Voice not recognized.")
+                    st.error("❌ Authentication failed. Voice not recognized.")
     
     if st.session_state.authenticated:
         # Display the authenticated user name
-        st.write(f"Authenticated user: {st.session_state.user_name.capitalize()}")
+        st.success(f"✅ Authenticated as: **{st.session_state.user_name.capitalize()}**")
+        st.divider()
 
-        # Display the translation app if authenticated
+        # Redirect to the translation app
         if st.session_state.page == "translation":
-            run_translation_app()  # Run the translation app
+            st.markdown("<h3>Accessing the Translation App... 🌍</h3>", unsafe_allow_html=True)
+            run_translation_app()
     else:
-        st.info("Please authenticate to access the translation app.")
+        st.info("Please complete authentication to proceed.")
 
 if __name__ == "__main__":
     main()
