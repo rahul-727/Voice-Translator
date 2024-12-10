@@ -1,111 +1,121 @@
-import logging
-import torch
-from transformers import pipeline
-import pyttsx3
+import os
+import streamlit as st
 import speech_recognition as sr
-import streamlit as st  # Ensure Streamlit is imported
-from streamlit.components.v1 import html
+from deep_translator import GoogleTranslator
+from gtts import gTTS
+import uuid  # To generate unique filenames
+from playsound import playsound
 
-# Setting up logging for better visibility of the process
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Supported languages
+LANGUAGES = {
+    "Afrikaans": "af",
+    "Albanian": "sq",
+    "Amharic": "am",
+    "Arabic": "ar",
+    "Armenian": "hy",
+    "Azerbaijani": "az",
+    "Basque": "eu",
+    "Belarusian": "be",
+    "Bengali": "bn",
+    "Bosnian": "bs",
+    "Bulgarian": "bg",
+    "Catalan": "ca",
+    "Cebuano": "ceb",
+    "Chinese (Simplified)": "zh-cn",
+    "Chinese (Traditional)": "zh-tw",
+    "Corsican": "co",
+    "Croatian": "hr",
+    "Czech": "cs",
+    "Danish": "da",
+    "Dutch": "nl",
+    "English": "en",
+    "Esperanto": "eo",
+    "Estonian": "et",
+    "Filipino": "tl",
+    "Finnish": "fi",
+    "French": "fr",
+    "German": "de",
+    "Greek": "el",
+    "Gujarati": "gu",
+    "Haitian Creole": "ht",
+    "Hebrew": "he",
+    "Hindi": "hi",
+    "Hungarian": "hu",
+    "Icelandic": "is",
+    "Indonesian": "id",
+    "Italian": "it",
+    "Japanese": "ja",
+    "Kannada": "kn",
+    "Korean": "ko",
+    "Latin": "la",
+    "Latvian": "lv",
+    "Lithuanian": "lt",
+    "Malay": "ms",
+    "Malayalam": "ml",
+    "Maltese": "mt",
+    "Norwegian": "no",
+    "Polish": "pl",
+    "Portuguese": "pt",
+    "Punjabi": "pa",
+    "Romanian": "ro",
+    "Russian": "ru",
+    "Spanish": "es",
+    "Swedish": "sv",
+    "Tamil": "ta",
+    "Telugu": "te",
+    "Thai": "th",
+    "Turkish": "tr",
+    "Ukrainian": "uk",
+    "Urdu": "ur",
+    "Vietnamese": "vi",
+    "Zulu": "zu",
+}
 
-# Initialize the translation pipeline
-translation_pipeline = pipeline("translation", model="Helsinki-NLP/opus-mt-en-fr")
-
-# Initialize the speech recognition model
-recognizer = sr.Recognizer()
-
-def speech_to_text_from_mic(source_language="en-US"):
+# Function to translate and play speech
+def translate_and_speak(text, target_language):
     try:
-        with sr.Microphone() as source:
-            logger.info("Please speak now...")
-            recognizer.adjust_for_ambient_noise(source)  # Adjusting for ambient noise
-            audio = recognizer.listen(source)  # Listen to the user's speech
-            text = recognizer.recognize_google(audio, language=source_language)
-            logger.info(f"Recognized Text: {text}")
-            return text
-    except sr.UnknownValueError:
-        logger.error("Could not understand the audio.")
-    except sr.RequestError as e:
-        logger.error(f"Could not request results from the speech recognition service; {e}")
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during speech-to-text conversion: {e}")
-    return None
+        # Translate text
+        translated_text = GoogleTranslator(source="auto", target=target_language).translate(text)
+        st.success(f"Translated Text: {translated_text}")
 
-def translate_text(text):
-    try:
-        logger.info(f"Translating text: {text}")
-        translated_text = translation_pipeline(text)[0]['translation_text']
-        logger.info(f"Translated Text: {translated_text}")
-        return translated_text
-    except Exception as e:
-        logger.error(f"An error occurred during translation: {e}")
-    return None
+        # Generate unique audio file name
+        audio_file = f"translated_speech_{uuid.uuid4().hex}.mp3"
 
-def text_to_speech_with_pyttsx3(text):
-    try:
-        logger.info("Converting text to speech with pyttsx3...")
-        engine = pyttsx3.init()
-        engine.say(text)
-        engine.runAndWait()
-    except Exception as e:
-        logger.error(f"An error occurred during text-to-speech conversion: {e}")
+        # Convert to speech
+        tts = gTTS(translated_text, lang=target_language)
+        tts.save(audio_file)
 
+        # Play the speech
+        playsound(audio_file)
+
+        # Clean up audio file
+        os.remove(audio_file)
+    except Exception as e:
+        st.error(f"Error: {e}")
+
+# Main function to run the Streamlit app
 def main():
-    st.title("🎤 **Voice Translator** 🌍")
-    st.subheader("Speak to translate your words across languages")
+    st.title("Speech Translator")
 
-    st.markdown("""
-    Welcome to the **Voice Translator** app! Simply press the button below, speak your words, 
-    and watch as they are automatically translated into a different language. You will also hear 
-    the translation through voice feedback.
-    """)
-    
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("### Select Target Language:")
+    target_language = st.selectbox("Choose a language", list(LANGUAGES.keys()))
 
-    # Styling the button and adding a background color for emphasis
-    button_style = """
-    <style>
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        font-size: 20px;
-        font-weight: bold;
-        border-radius: 12px;
-        width: 200px;
-        height: 60px;
-    }
-    .stButton>button:hover {
-        background-color: #45a049;
-    }
-    </style>
-    """
-    st.markdown(button_style, unsafe_allow_html=True)
-
-    # Button for starting speech input
-    if st.button("🎙️ Start Speaking"):
-        st.spinner("Listening... please speak clearly into your microphone.")
-        source_language = "en-US"
-        recognized_text = speech_to_text_from_mic(source_language)
-        if recognized_text:
-            st.markdown(f"### 📜 **Recognized Text**: _{recognized_text}_")
-            translated_text = translate_text(recognized_text)
-            if translated_text:
-                st.markdown(f"### ✨ **Translated Text**: _{translated_text}_")
-                text_to_speech_with_pyttsx3(translated_text)
-            else:
-                st.error("❌ Translation failed. Please try again.")
-        else:
-            st.error("❌ Speech recognition failed. Please try again.")
-
-    # Footer Information
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown("""
-    <div style="text-align: center; font-size: 14px; color: grey;">
-    Created with dedication by Noel, Sanin, and Rahul. Powered by Streamlit, HuggingFace, and Pyttsx3.
-    </div>
-    """, unsafe_allow_html=True)
+    if st.button("Start Recording"):
+        st.info("Listening for 5 seconds... Speak now!")
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            try:
+                audio = recognizer.listen(source, timeout=5)
+                st.info("Processing your input...")
+                captured_text = recognizer.recognize_google(audio)
+                st.success(f"Recognized Speech: {captured_text}")
+                translate_and_speak(captured_text, LANGUAGES[target_language])
+            except sr.WaitTimeoutError:
+                st.error("Listening timed out. Please try again.")
+            except sr.UnknownValueError:
+                st.error("Could not understand your speech. Please try again.")
+            except sr.RequestError as e:
+                st.error(f"Could not request results; {e}")
 
 if __name__ == "__main__":
     main()
